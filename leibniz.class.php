@@ -46,20 +46,24 @@ class Leibniz
     $this->set_gear($line);
   }
 
-  public function set_alphabets($alphabets, $delimiter = "\n")
+  public function alphabets_string_to_array($string, $delimiter = "\n")
   {
-    $lines = explode($delimiter, $alphabets);
+    $lines = explode($delimiter, $string);
+    $alphabets = array();
     foreach($lines as $line)
       {
 	$line = preg_replace('/[[:space:]]/','', $line);
 	if(($new_alph = $this->alph_string_to_array($line)) !== false)
 	  {
-	    if($this->alphabets === NULL)
-	      $this->alphabets = array();
-	    $this->alphabets[count($this->alphabets)] = $new_alph;
+	    $alphabets[count($alphabets)] = $new_alph;
 	  }
       }
+    return $alphabets;
+  }
 
+  public function set_alphabets($alphabets, $delimiter = "\n")
+  {
+    $this->alphabets = $this->alphabets_string_to_array($alphabets, $delimiter);
     if($this->debug)
       $this->pre_array($this->alphabets);    
   }
@@ -90,17 +94,22 @@ class Leibniz
     return $enc_msg;
   }
 
-  public function decrypt($msg)
+  public function decrypt($msg, $alphabets = NULL, $gear = NULL)
   {
     $msg = $this->pad($msg);
     $dec_msg = '';
     $cur_alph = 0;
 
+    if($alphabets === NULL)
+      $alphabets = $this->alphabets;
+    if($gear === NULL)
+      $gear = $this->gear;
+
     for($i = 0; $i < strlen($msg); $i++)
       {
 	$enc_char = $msg[$i];
 	$dec_char = NULL;
-	foreach($this->alphabets[$cur_alph] as $dec => $enc)
+	foreach($alphabets[$cur_alph] as $dec => $enc)
 	  {
 	    if($enc_char == $enc)
 	      {
@@ -110,8 +119,8 @@ class Leibniz
 	  }
 	if($dec_char === NULL)
 	  $this->error("Unexpected input: $enc_char is not in the character set");
-	if($this->gear[$i % count($this->gear)] == 1)
-	  $cur_alph = ($cur_alph + 1) % count($this->alphabets);
+	if($gear[$i % count($gear)] == 1)
+	  $cur_alph = ($cur_alph + 1) % count($alphabets);
 	$dec_msg .= $dec_char;
 	if($this->debug)
 	  echo $enc_char . " to " . $dec_char . "<br>";
@@ -119,6 +128,65 @@ class Leibniz
     return $dec_msg;
   }
 
+  public function crack($encrypted_message, $original_message, $know_alphabets = false, $know_gear = false)
+  {
+    if($know_gear)
+      $possible_gears = $this->gear;
+    else
+      $possible_gears = $this->enumerate_gears();
+    
+    $attempts = 0;
+    if($know_alphabets)
+      {
+	foreach($possible_gears as $gear)
+	  {
+	    $attempts++;
+	    if($this->decrypt($encrypted_message, $this->alphabets, $gear) == $decrypted_message)
+	      break;
+	  }
+      }
+    else
+      {
+	foreach($possible_gears as $gear)
+	  {
+	    $alphabets = $this->generate_starting_alphabets();
+	    do
+	      {
+		$attempts++;
+		$formatted_alphabets = alphabets_string_to_array($alphabets,"\n");
+		if($this->decrypt($encrypted_message, $formatted_alphabets, $gear) == $decrypted_message)
+		  {
+		    break 2;
+		  }
+		$alphabets = $this->permute($alphabets);
+	      }
+	    while($this->decrypt());
+	  }
+	$attempts++;
+      }
+    return $attempts;
+  }
+
+  public function permute($alphabets, $delimiter = "\n")
+  {
+
+  }
+
+  public function generate_starting_alphabets($num = 6, $delimiter = "\n")
+  {
+    $alphabets = array();
+    for($i = 0; $i < $num; $i++)
+      $alphabets[] = self::default_alphabet;
+    return implode($delimiter, $alphabets);
+  }
+
+  public function enumerate_gears($length = 6)
+  {
+    $gears = array();
+    for($i = 0; $i < pow(2,6); $i++)
+      $gears[] = decbin($i);
+    return $gears;
+  }
 
   public function error($msg, $die = true)
   {
