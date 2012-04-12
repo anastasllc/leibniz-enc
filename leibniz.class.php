@@ -128,7 +128,7 @@ class Leibniz
     return $dec_msg;
   }
 
-  public function crack($encrypted_message, $original_message, $know_alphabets = false, $know_gear = false)
+  public function crack($encrypted_message, $original_message, $know_alphabets = true, $know_gear = false)
   {
     if($know_gear)
       $possible_gears = $this->gear;
@@ -137,42 +137,32 @@ class Leibniz
     
     $attempts = 0;
     if($know_alphabets)
-      {
-	foreach($possible_gears as $gear)
-	  {
-	    $attempts++;
-	    if($this->decrypt($encrypted_message, $this->alphabets, $gear) == $decrypted_message)
-	      break;
-	  }
-      }
+      foreach($possible_gears as $gear)
+	{
+	  $attempts++;
+	  if($this->decrypt($encrypted_message, $this->alphabets, $gear) == $decrypted_message)
+	    break;
+	}
     else
       {
+	// realized that there are (24!)^6 permutations, way way too many
+	// so we'll just apologize and refuse to try.
+	$this->error('you ask the impossible');
+	/*
 	foreach($possible_gears as $gear)
-	  {
-	    $alphabets = $this->generate_starting_alphabets();
-	    do
-	      {
-		$attempts++;
-		$formatted_alphabets = alphabets_string_to_array($alphabets,"\n");
-		if($this->decrypt($encrypted_message, $formatted_alphabets, $gear) == $decrypted_message)
-		  {
-		    break 2;
-		  }
-		$alphabets = $this->permute($alphabets);
-	      }
-	    while($this->decrypt());
-	  }
-	$attempts++;
+	  $attempts += $this->crack_permuting_alphabets($encrypted_message, $decrypted_message, $gear, $attempts);
+	*/
       }
+
     return $attempts;
   }
 
-  public function permute($alphabets, $delimiter = "\n")
+  public function crack_permuting_alphabets($encrypted_message, $decrypted_message, $gear, $attempts)
   {
-
+    $alphabets = $this->generate_starting_alphabets_string();
   }
 
-  public function generate_starting_alphabets($num = 6, $delimiter = "\n")
+  public function generate_starting_alphabets_string($num = 6, $delimiter = "\n")
   {
     $alphabets = array();
     for($i = 0; $i < $num; $i++)
